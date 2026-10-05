@@ -16,6 +16,7 @@ import org.example.notesharing.entity.User;
 import org.example.notesharing.enums.NotePermission;
 import org.example.notesharing.enums.NoteType;
 import org.example.notesharing.enums.NoteVisibility;
+import org.example.notesharing.enums.NotificationType;
 import org.example.notesharing.exception.BusinessRuleException;
 import org.example.notesharing.exception.ForbiddenException;
 import org.example.notesharing.exception.ResourceNotFoundException;
@@ -44,6 +45,7 @@ public class NoteService {
     private final NoteRepository notes;
     private final NoteSharingRepository shares;
     private final UserRepository users;
+    private final NotificationService notificationService;
 
     @Transactional
     public NoteResponseDto create(Long userId, CreateNoteRequestDto request) {
@@ -167,13 +169,24 @@ public class NoteService {
 
         User recipient = requireUser(request.userId());
 
-        NoteSharing sharing = shares.findByNoteIdAndUserId(noteId, request.userId())
-            .orElseGet(NoteSharing::new);
+        NoteSharing existing = shares.findByNoteIdAndUserId(noteId, request.userId()).orElse(null);
+
+        NoteSharing sharing = existing == null ? new NoteSharing() : existing;
         sharing.setNote(note);
         sharing.setUser(recipient);
         sharing.setPermission(request.permission());
+        NoteShareResponseDto saved = toShareResponse(shares.save(sharing));
 
-        return toShareResponse(shares.save(sharing));
+        // Only on first grant. Raising an existing share's permission is not new access, and
+        // notifying then would be noise about something the recipient already knew about.
+        if (existing == null) {
+            notificationService.notify(note.getUser(), recipient, NotificationType.NOTE_SHARED,
+                note.getUser().getUsername() + " shared a note with you: "
+                    + (note.getTitle() == null ? "(untitled)" : note.getTitle()),
+                note);
+        }
+
+        return saved;
     }
 
     /**

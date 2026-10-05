@@ -7,6 +7,7 @@ import org.example.notesharing.dto.social.RelationshipResponseDto.Direction;
 import org.example.notesharing.dto.user.UserSummaryDto;
 import org.example.notesharing.entity.User;
 import org.example.notesharing.entity.UserRelationship;
+import org.example.notesharing.enums.NotificationType;
 import org.example.notesharing.enums.RelationshipType;
 import org.example.notesharing.exception.BusinessRuleException;
 import org.example.notesharing.exception.ConflictException;
@@ -36,6 +37,7 @@ public class SocialService {
 
     private final UserRelationshipRepository relationships;
     private final UserRepository users;
+    private final NotificationService notificationService;
 
     @Transactional
     public RelationshipResponseDto sendFriendRequest(Long fromUserId, Long toUserId) {
@@ -78,7 +80,12 @@ public class SocialService {
         request.setType(RelationshipType.FRIEND_REQUEST);
         request.setCreatedAt(LocalDateTime.now());
 
-        return toResponse(relationships.save(request), Direction.OUTGOING);
+        UserRelationship saved = relationships.save(request);
+
+        notificationService.notify(from, to, NotificationType.FRIEND_REQUEST,
+            from.getUsername() + " sent you a friend request", null);
+
+        return toResponse(saved, Direction.OUTGOING);
     }
 
     /**
@@ -109,6 +116,11 @@ public class SocialService {
         saveDirected(first, second, RelationshipType.FRIEND);
         UserRelationship reverse = saveDirected(second, first, RelationshipType.FRIEND);
 
+        // Clear the "X sent you a friend request" notification. It is the only thing pointing
+        // at the request row, and that row is gone now, so leaving it would send the recipient
+        // to a 404.
+        notificationService.dismiss(request.getFirstUser(), second, NotificationType.FRIEND_REQUEST);
+
         return toResponse(reverse, Direction.OUTGOING);
     }
 
@@ -124,6 +136,8 @@ public class SocialService {
             throw new BusinessRuleException("That is not a pending friend request.");
         }
         relationships.delete(request);
+        notificationService.dismiss(request.getFirstUser(), request.getSecondUser(),
+            NotificationType.FRIEND_REQUEST);
     }
 
     /** Withdraws a request by its row id. Only the sender may withdraw it. */
@@ -138,6 +152,8 @@ public class SocialService {
             throw new BusinessRuleException("That is not a pending friend request.");
         }
         relationships.delete(request);
+        notificationService.dismiss(request.getFirstUser(), request.getSecondUser(),
+            NotificationType.FRIEND_REQUEST);
     }
 
     /** Withdraws a request addressed by recipient rather than by row id. */
@@ -148,6 +164,8 @@ public class SocialService {
                 userId, targetUserId, RelationshipType.FRIEND_REQUEST)
             .orElseThrow(() -> new ResourceNotFoundException("Friend request", targetUserId));
         relationships.delete(request);
+        notificationService.dismiss(request.getFirstUser(), request.getSecondUser(),
+            NotificationType.FRIEND_REQUEST);
     }
 
     /**
@@ -155,6 +173,10 @@ public class SocialService {
      *
      * <p>Blocking without that cleanup would leave a friendship row behind, so the blocked
      * user would still appear in the blocker's friends list and could still read shared notes.
+     *
+     * <p>Any pending request is dismissed from both inboxes. The blocked user's request is
+     * about to stop being actionable without the recipient ever being told, and leaving the
+     * notification would invite them to keep trying.
      */
     @Transactional
     public RelationshipResponseDto block(Long userId, Long targetUserId) {
@@ -168,6 +190,9 @@ public class SocialService {
         relationships.findBetween(userId, targetUserId)
             .forEach(relationships::delete);
         relationships.flush();
+
+        notificationService.dismiss(blocker, blocked, NotificationType.FRIEND_REQUEST);
+        notificationService.dismiss(blocked, blocker, NotificationType.FRIEND_REQUEST);
 
         UserRelationship row = new UserRelationship();
         row.setFirstUser(blocker);

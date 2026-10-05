@@ -54,4 +54,8 @@ public final class SafePageable {
     /** Fields on {@code UserRelationship} a client may sort by. */
     public static final Set<String> SOCIAL_SORT_FIELDS =
         Set.of("id", "type", "createdAt");
+
+    /** Fields on {@code Notification} a client may sort by. */
+    public static final Set<String> NOTIFICATION_SORT_FIELDS =
+        Set.of("id", "type", "issueDate", "read");
 }

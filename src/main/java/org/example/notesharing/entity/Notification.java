@@ -17,15 +17,21 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import org.example.notesharing.enums.NotificationType;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDateTime;
 
 /**
- * Note and relationship ids are carried as association columns only.
+ * A notification addressed to one user about something that happened.
  *
- * <p>The original entity declared both {@code noteId}/{@code relationshipId} scalar fields
- * and {@code note}/{@code userRelationship} associations. Hibernate maps both pairs onto the
- * same physical column and refuses the mapping outright, so the scalars are gone.
+ * <p>The original entity declared both scalar {@code noteId}/{@code relationshipId} fields and
+ * {@code note}/{@code userRelationship} associations. Hibernate maps both pairs onto the same
+ * physical column and refuses the mapping outright, so the scalars are gone.
+ *
+ * <p>There is no reference to the friend request. Accepting or rejecting a request deletes
+ * that row, so a foreign key to it would either block the delete or leave a dangling link;
+ * the notifier and message carry the same information without the coupling.
  */
 @Getter
 @Setter
@@ -62,11 +68,18 @@ public class Notification {
     @JoinColumn(name = "notified_id")
     private User notified;
 
+    /**
+     * The note this is about, if any. Cleared by the database when the note is deleted: a
+     * notification about a deleted note is still a true statement about the past, so the row
+     * stays and only the reference goes.
+     *
+     * <p>{@code ON DELETE SET NULL} is declared here as well as in the migration. The dev
+     * profile builds its schema from the entities rather than from the migrations, so without
+     * it the foreign key would be strict there and deleting a shared note would fail with a
+     * constraint violation that prod never sees.
+     */
     @ManyToOne
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     @JoinColumn(name = "note_id")
     private Note note;
-
-    @ManyToOne
-    @JoinColumn(name = "user_relationship_id")
-    private UserRelationship userRelationship;
 }
