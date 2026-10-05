@@ -1,7 +1,9 @@
 package org.example.notesharing.controller;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.notesharing.config.OpenApiConfig;
 import org.example.notesharing.dto.auth.LoginRequestDto;
 import org.example.notesharing.dto.auth.RefreshRequestDto;
 import org.example.notesharing.dto.auth.RegisterRequestDto;
@@ -24,6 +26,14 @@ public class AuthController {
 
     private final AuthService authService;
 
+    /**
+     * The three endpoints that can be called without a token.
+     *
+     * <p>Security is declared globally in {@link OpenApiConfig}, because almost every
+     * endpoint needs one. These opt out with an empty {@code @SecurityRequirements} so
+     * Swagger UI does not tell a user to authorise the very call that exists to get a token.
+     */
+    @SecurityRequirements
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<TokenPairDto>> register(
             @Valid @RequestBody RegisterRequestDto request) {
@@ -31,11 +41,13 @@ public class AuthController {
             .body(ApiResponse.of(authService.register(request), "Registered"));
     }
 
+    @SecurityRequirements
     @PostMapping("/login")
     public ApiResponse<TokenPairDto> login(@Valid @RequestBody LoginRequestDto request) {
         return ApiResponse.of(authService.login(request), "Logged in");
     }
 
+    @SecurityRequirements
     @PostMapping("/refresh")
     public ApiResponse<TokenPairDto> refresh(@Valid @RequestBody RefreshRequestDto request) {
         return ApiResponse.of(authService.refresh(request), "Token refreshed");
