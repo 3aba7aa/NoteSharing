@@ -96,10 +96,12 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Schema migrations; version managed by the Boot BOM. -->
+        <!-- Schema migrations. The starter (not bare flyway-core) is what carries
+             FlywayAutoConfiguration in Boot 4.x; without it Flyway never runs and
+             Hibernate validates against an empty schema. -->
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
