@@ -153,6 +153,7 @@ public class NoteService {
         notes.delete(note);
     }
 
+    /** Creates a share, or changes the permission on one that already exists. */
     @Transactional
     public NoteShareResponseDto share(Long noteId, Long userId, ShareNoteRequestDto request) {
         Note note = require(noteId);

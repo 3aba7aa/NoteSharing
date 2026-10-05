@@ -50,4 +50,8 @@ public final class SafePageable {
     public static final Set<String> NOTE_SORT_FIELDS =
         Set.of("id", "title", "type", "visibility", "startDate", "endDate",
             "createdAt", "modifiedAt");
+
+    /** Fields on {@code UserRelationship} a client may sort by. */
+    public static final Set<String> SOCIAL_SORT_FIELDS =
+        Set.of("id", "type", "createdAt");
 }

@@ -21,13 +21,19 @@ import org.example.notesharing.enums.RelationshipType;
 
 import java.time.LocalDateTime;
 
+/**
+ * A directed relationship between two users: {@code firstUser} acts on {@code secondUser}.
+ *
+ * <p>Friendship is symmetric but still stored as a row in each direction, so the uniqueness
+ * constraint does the deduplication and "my friends" needs one indexed lookup.
+ */
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
 @Table(name = "user_relationship", uniqueConstraints = {
     @UniqueConstraint(name = "uk_user_relationship_pair",
-        columnNames = {"first_user_id", "second_user_id"})
+        columnNames = {"first_user_id", "second_user_id", "type"})
 })
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString(onlyExplicitlyIncluded = true)

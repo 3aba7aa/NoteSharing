@@ -129,8 +129,8 @@ public class NoteController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Grants or changes another user's permission on this note. */
-    @PostMapping("/{id}/share")
+    /** Grants or creates another user's permission on this note. */
+    @PostMapping("/{id}/shares")
     public ResponseEntity<ApiResponse<NoteShareResponseDto>> share(
             @PathVariable Long id,
             @AuthenticationPrincipal JwtPrincipal principal,
@@ -139,7 +139,8 @@ public class NoteController {
             .body(ApiResponse.of(noteService.share(id, principal.userId(), request), "Shared"));
     }
 
-    @DeleteMapping("/{id}/share/{userId}")
+    /** Revokes a recipient's access. Plural to match the other share sub-resource. */
+    @DeleteMapping("/{id}/shares/{userId}")
     public ResponseEntity<Void> unshare(@PathVariable Long id,
                                         @PathVariable Long userId,
                                         @AuthenticationPrincipal JwtPrincipal principal) {
@@ -154,12 +155,7 @@ public class NoteController {
         return ApiResponse.of(noteService.listShares(id, principal.userId()), "Note shares");
     }
 
-    /**
-     * Changes one recipient's permission. Placed under {@code /shares} to match the spec's
-     * Sharing section, which also lists removal at {@code DELETE /{id}/share/{userId}} under
-     * Notes. The two spellings differ in the spec; both are honoured rather than silently
-     * renaming one of them.
-     */
+    /** Changes one recipient's permission on an existing share. */
     @PutMapping("/{id}/shares/{userId}")
     public ApiResponse<NoteShareResponseDto> updateShare(
             @PathVariable Long id,
