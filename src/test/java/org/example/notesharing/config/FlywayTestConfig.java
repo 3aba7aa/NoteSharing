@@ -2,6 +2,7 @@ package org.example.notesharing.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Profile;
 
 /**
  * Forces Flyway to migrate before Hibernate validates.
@@ -12,9 +13,14 @@ import org.springframework.context.annotation.DependsOn;
  * does not fix this: it orders script-based initialization, not Flyway.
  *
  * <p>Declaring a dependency on {@code flywayInitializer} is what actually sequences the two.
- * Imported by the {@code *IT} tests that assert against a migrated schema.
+ *
+ * <p>Restricted to the {@code test} profile on purpose. This class sits under the application's
+ * own base package, so component scanning picks it up in every context — and the dev profile
+ * sets {@code spring.flyway.enabled=false}, which means there is no {@code flywayInitializer}
+ * bean to depend on and startup fails. The ordering is only needed where Flyway actually runs.
  */
 @Configuration
+@Profile("test")
 @DependsOn("flywayInitializer")
 public class FlywayTestConfig {
 }
