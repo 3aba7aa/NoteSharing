@@ -10,6 +10,7 @@ import org.example.notesharing.dto.note.NoteShareResponseDto;
 import org.example.notesharing.dto.note.NoteSummaryDto;
 import org.example.notesharing.dto.note.ShareNoteRequestDto;
 import org.example.notesharing.dto.note.UpdateNoteRequestDto;
+import org.example.notesharing.dto.note.UpdateShareRequestDto;
 import org.example.notesharing.enums.NoteType;
 import org.example.notesharing.enums.NoteVisibility;
 import org.example.notesharing.security.JwtPrincipal;
@@ -151,6 +152,23 @@ public class NoteController {
             @PathVariable Long id,
             @AuthenticationPrincipal JwtPrincipal principal) {
         return ApiResponse.of(noteService.listShares(id, principal.userId()), "Note shares");
+    }
+
+    /**
+     * Changes one recipient's permission. Placed under {@code /shares} to match the spec's
+     * Sharing section, which also lists removal at {@code DELETE /{id}/share/{userId}} under
+     * Notes. The two spellings differ in the spec; both are honoured rather than silently
+     * renaming one of them.
+     */
+    @PutMapping("/{id}/shares/{userId}")
+    public ApiResponse<NoteShareResponseDto> updateShare(
+            @PathVariable Long id,
+            @PathVariable Long userId,
+            @AuthenticationPrincipal JwtPrincipal principal,
+            @Valid @RequestBody UpdateShareRequestDto request) {
+        return ApiResponse.of(
+            noteService.updateSharePermission(id, principal.userId(), userId, request),
+            "Share updated");
     }
 
     /** Clamps size and page, and rejects sorting on a field the entity does not have. */

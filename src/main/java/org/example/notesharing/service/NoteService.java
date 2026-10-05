@@ -7,6 +7,7 @@ import org.example.notesharing.dto.note.NoteShareResponseDto;
 import org.example.notesharing.dto.note.NoteSummaryDto;
 import org.example.notesharing.dto.note.ShareNoteRequestDto;
 import org.example.notesharing.dto.note.UpdateNoteRequestDto;
+import org.example.notesharing.dto.note.UpdateShareRequestDto;
 import org.example.notesharing.dto.common.PageResponse;
 import org.example.notesharing.dto.user.UserSummaryDto;
 import org.example.notesharing.entity.Note;
@@ -171,6 +172,29 @@ public class NoteService {
         sharing.setUser(recipient);
         sharing.setPermission(request.permission());
 
+        return toShareResponse(shares.save(sharing));
+    }
+
+    /**
+     * Changes an existing share's permission.
+     *
+     * <p>Requires the share to already exist, unlike {@link #share}, which creates or updates.
+     * That is the PUT/POST distinction: PUT addresses a specific existing subresource, so a
+     * missing one is a 404 rather than a silent create.
+     */
+    @Transactional
+    public NoteShareResponseDto updateSharePermission(Long noteId, Long userId,
+                                                     Long targetUserId,
+                                                     UpdateShareRequestDto request) {
+        Note note = require(noteId);
+        if (!note.getUser().getId().equals(userId)) {
+            throw new ForbiddenException("Only the note owner can change sharing.");
+        }
+
+        NoteSharing sharing = shares.findByNoteIdAndUserId(noteId, targetUserId)
+            .orElseThrow(() -> new ResourceNotFoundException("Share", targetUserId));
+
+        sharing.setPermission(request.permission());
         return toShareResponse(shares.save(sharing));
     }
 
