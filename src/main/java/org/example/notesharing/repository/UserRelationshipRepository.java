@@ -2,8 +2,6 @@ package org.example.notesharing.repository;
 
 import org.example.notesharing.entity.UserRelationship;
 import org.example.notesharing.enums.RelationshipType;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,17 +16,30 @@ public interface UserRelationshipRepository
     Optional<UserRelationship> findByFirstUserIdAndSecondUserIdAndType(
         Long firstUserId, Long secondUserId, RelationshipType type);
 
-    /** Everything pointing away from the given user: their friends, blocks, sent requests. */
-    List<UserRelationship> findByFirstUserIdAndType(Long firstUserId, RelationshipType type);
+    /**
+     * Everything pointing away from the given user: their friends, blocks, sent requests,
+     * newest first.
+     */
+    @Query("""
+        select r from UserRelationship r
+        where r.firstUser.id = :firstUserId
+          and r.type = :type
+        order by r.createdAt desc, r.id desc
+        """)
+    List<UserRelationship> findByFirstUserIdAndType(@Param("firstUserId") Long firstUserId,
+                                                    @Param("type") RelationshipType type);
 
-    Page<UserRelationship> findByFirstUserIdAndType(
-        Long firstUserId, RelationshipType type, Pageable pageable);
-
-    /** Everything pointing at the given user: requests awaiting their answer. */
-    List<UserRelationship> findBySecondUserIdAndType(Long secondUserId, RelationshipType type);
-
-    Page<UserRelationship> findBySecondUserIdAndType(
-        Long secondUserId, RelationshipType type, Pageable pageable);
+    /**
+     * Everything pointing at the given user: requests awaiting their answer, newest first.
+     */
+    @Query("""
+        select r from UserRelationship r
+        where r.secondUser.id = :secondUserId
+          and r.type = :type
+        order by r.createdAt desc, r.id desc
+        """)
+    List<UserRelationship> findBySecondUserIdAndType(@Param("secondUserId") Long secondUserId,
+                                                     @Param("type") RelationshipType type);
 
     /**
      * True if the viewer has blocked the target. Deliberately one-directional: being blocked

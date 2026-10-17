@@ -1,7 +1,6 @@
 package org.example.notesharing.service;
 
 import lombok.RequiredArgsConstructor;
-import org.example.notesharing.dto.common.PageResponse;
 import org.example.notesharing.dto.social.RelationshipResponseDto;
 import org.example.notesharing.dto.social.RelationshipResponseDto.Direction;
 import org.example.notesharing.dto.user.UserSummaryDto;
@@ -15,8 +14,6 @@ import org.example.notesharing.exception.ForbiddenException;
 import org.example.notesharing.exception.ResourceNotFoundException;
 import org.example.notesharing.repository.UserRelationshipRepository;
 import org.example.notesharing.repository.UserRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -226,31 +223,33 @@ public class SocialService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<RelationshipResponseDto> listFriends(Long userId, Pageable pageable) {
-        return page(relationships.findByFirstUserIdAndType(
-            userId, RelationshipType.FRIEND, pageable), Direction.OUTGOING);
+    public List<RelationshipResponseDto> listFriends(Long userId) {
+        return relationships.findByFirstUserIdAndType(userId, RelationshipType.FRIEND).stream()
+            .map(row -> toResponse(row, Direction.OUTGOING))
+            .toList();
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<RelationshipResponseDto> listBlocked(Long userId, Pageable pageable) {
-        return page(relationships.findByFirstUserIdAndType(
-            userId, RelationshipType.BLOCKED, pageable), Direction.OUTGOING);
+    public List<RelationshipResponseDto> listBlocked(Long userId) {
+        return relationships.findByFirstUserIdAndType(userId, RelationshipType.BLOCKED).stream()
+            .map(row -> toResponse(row, Direction.OUTGOING))
+            .toList();
     }
 
     /** Requests waiting for the caller's answer. */
     @Transactional(readOnly = true)
-    public PageResponse<RelationshipResponseDto> listIncomingRequests(Long userId,
-                                                                      Pageable pageable) {
-        return page(relationships.findBySecondUserIdAndType(
-            userId, RelationshipType.FRIEND_REQUEST, pageable), Direction.INCOMING);
+    public List<RelationshipResponseDto> listIncomingRequests(Long userId) {
+        return relationships.findBySecondUserIdAndType(userId, RelationshipType.FRIEND_REQUEST).stream()
+            .map(row -> toResponse(row, Direction.INCOMING))
+            .toList();
     }
 
     /** Requests the caller has sent and nobody has answered. */
     @Transactional(readOnly = true)
-    public PageResponse<RelationshipResponseDto> listOutgoingRequests(Long userId,
-                                                                      Pageable pageable) {
-        return page(relationships.findByFirstUserIdAndType(
-            userId, RelationshipType.FRIEND_REQUEST, pageable), Direction.OUTGOING);
+    public List<RelationshipResponseDto> listOutgoingRequests(Long userId) {
+        return relationships.findByFirstUserIdAndType(userId, RelationshipType.FRIEND_REQUEST).stream()
+            .map(row -> toResponse(row, Direction.OUTGOING))
+            .toList();
     }
 
     private boolean isFriend(Long a, Long b) {
@@ -266,11 +265,6 @@ public class SocialService {
         row.setType(type);
         row.setCreatedAt(LocalDateTime.now());
         return relationships.save(row);
-    }
-
-    private static PageResponse<RelationshipResponseDto> page(
-            Page<UserRelationship> page, Direction direction) {
-        return PageResponse.from(page, row -> toResponse(row, direction));
     }
 
     private static RelationshipResponseDto toResponse(UserRelationship row, Direction direction) {

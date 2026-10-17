@@ -2,14 +2,9 @@ package org.example.notesharing.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.example.notesharing.dto.common.ApiResponse;
-import org.example.notesharing.dto.common.PageResponse;
 import org.example.notesharing.dto.social.RelationshipResponseDto;
 import org.example.notesharing.security.JwtPrincipal;
 import org.example.notesharing.service.SocialService;
-import org.example.notesharing.web.SafePageable;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,6 +15,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * The caller's own social graph: friends, blocks and pending requests.
@@ -32,47 +29,35 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class SocialController {
 
-    private static final String DEFAULT_SORT = "createdAt";
-
     private final SocialService socialService;
 
     @GetMapping("/users/me/friends")
-    public ApiResponse<PageResponse<RelationshipResponseDto>> friends(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @PageableDefault(size = 20, sort = DEFAULT_SORT, direction = Sort.Direction.DESC)
-            Pageable pageable) {
-        return ApiResponse.of(socialService.listFriends(principal.userId(), bounded(pageable)),
-            "Friends");
+    public ApiResponse<List<RelationshipResponseDto>> friends(
+            @AuthenticationPrincipal JwtPrincipal principal) {
+        return ApiResponse.of(socialService.listFriends(principal.userId()), "Friends");
     }
 
     @GetMapping("/users/me/blocked")
-    public ApiResponse<PageResponse<RelationshipResponseDto>> blocked(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @PageableDefault(size = 20, sort = DEFAULT_SORT, direction = Sort.Direction.DESC)
-            Pageable pageable) {
-        return ApiResponse.of(socialService.listBlocked(principal.userId(), bounded(pageable)),
-            "Blocked users");
+    public ApiResponse<List<RelationshipResponseDto>> blocked(
+            @AuthenticationPrincipal JwtPrincipal principal) {
+        return ApiResponse.of(socialService.listBlocked(principal.userId()), "Blocked users");
     }
 
     /** Requests waiting for the caller's answer. */
     @GetMapping("/friend-requests")
-    public ApiResponse<PageResponse<RelationshipResponseDto>> incoming(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @PageableDefault(size = 20, sort = DEFAULT_SORT, direction = Sort.Direction.DESC)
-            Pageable pageable) {
+    public ApiResponse<List<RelationshipResponseDto>> incoming(
+            @AuthenticationPrincipal JwtPrincipal principal) {
         return ApiResponse.of(
-            socialService.listIncomingRequests(principal.userId(), bounded(pageable)),
+            socialService.listIncomingRequests(principal.userId()),
             "Incoming friend requests");
     }
 
     /** Requests the caller sent that nobody has answered. */
     @GetMapping("/friend-requests/sent")
-    public ApiResponse<PageResponse<RelationshipResponseDto>> outgoing(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @PageableDefault(size = 20, sort = DEFAULT_SORT, direction = Sort.Direction.DESC)
-            Pageable pageable) {
+    public ApiResponse<List<RelationshipResponseDto>> outgoing(
+            @AuthenticationPrincipal JwtPrincipal principal) {
         return ApiResponse.of(
-            socialService.listOutgoingRequests(principal.userId(), bounded(pageable)),
+            socialService.listOutgoingRequests(principal.userId()),
             "Sent friend requests");
     }
 
@@ -90,9 +75,5 @@ public class SocialController {
                                         @AuthenticationPrincipal JwtPrincipal principal) {
         socialService.unblock(principal.userId(), userId);
         return ResponseEntity.noContent().build();
-    }
-
-    private static Pageable bounded(Pageable pageable) {
-        return SafePageable.of(pageable, SafePageable.SOCIAL_SORT_FIELDS);
     }
 }
