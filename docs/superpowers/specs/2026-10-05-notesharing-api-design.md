@@ -138,7 +138,8 @@ org.example.notesharing
 ### Response DTOs
 - Flat structure, no bidirectional relationships
 - `@JsonInclude(JsonInclude.Include.NON_NULL)`
-- Consistent wrapper: `ApiResponse<T>` for single, `PageResponse<T>` for paginated
+- Consistent wrapper: `ApiResponse<T>`; list endpoints return `ApiResponse<List<T>>`
+  (pagination removed 2026-10-17, see 2026-10-17-remove-pagination-design.md)
 
 ### Mappers
 - MapStruct (compile-time) for entity ↔ DTO conversion
