@@ -2,12 +2,12 @@ package org.example.notesharing.repository;
 
 import org.example.notesharing.entity.Notification;
 import org.example.notesharing.enums.NotificationType;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
@@ -23,11 +23,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         where n.notified.id = :userId
           and (:read is null or n.read = :read)
           and (:type is null or n.type = :type)
+        order by n.issueDate desc, n.id desc
         """)
-    Page<Notification> findForUser(@Param("userId") Long userId,
+    List<Notification> findForUser(@Param("userId") Long userId,
                                    @Param("read") Boolean read,
-                                   @Param("type") NotificationType type,
-                                   Pageable pageable);
+                                   @Param("type") NotificationType type);
 
     /**
      * Marks one notification read, scoped to its recipient.

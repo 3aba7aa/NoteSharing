@@ -1,7 +1,6 @@
 package org.example.notesharing.service;
 
 import lombok.RequiredArgsConstructor;
-import org.example.notesharing.dto.common.PageResponse;
 import org.example.notesharing.dto.notification.NotificationResponseDto;
 import org.example.notesharing.dto.user.UserSummaryDto;
 import org.example.notesharing.entity.Notification;
@@ -10,13 +9,12 @@ import org.example.notesharing.entity.User;
 import org.example.notesharing.enums.NotificationType;
 import org.example.notesharing.repository.NotificationRepository;
 import org.example.notesharing.repository.UserRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Reading notifications, and the one place that writes them.
@@ -33,10 +31,11 @@ public class NotificationService {
     private final UserRepository users;
 
     @Transactional(readOnly = true)
-    public PageResponse<NotificationResponseDto> list(Long userId, Boolean read,
-                                                     NotificationType type, Pageable pageable) {
-        Page<Notification> page = notifications.findForUser(userId, read, type, pageable);
-        return PageResponse.from(page, NotificationService::toResponse);
+    public List<NotificationResponseDto> list(Long userId, Boolean read,
+                                              NotificationType type) {
+        return notifications.findForUser(userId, read, type).stream()
+            .map(NotificationService::toResponse)
+            .toList();
     }
 
     @Transactional(readOnly = true)

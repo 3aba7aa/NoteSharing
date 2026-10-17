@@ -2,15 +2,10 @@ package org.example.notesharing.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.example.notesharing.dto.common.ApiResponse;
-import org.example.notesharing.dto.common.PageResponse;
 import org.example.notesharing.dto.notification.NotificationResponseDto;
 import org.example.notesharing.enums.NotificationType;
 import org.example.notesharing.security.JwtPrincipal;
 import org.example.notesharing.service.NotificationService;
-import org.example.notesharing.web.SafePageable;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -34,21 +30,22 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     /**
-     * @param read {@code true} for unread only, {@code false} for read only, absent for all
+     * @param read {@code true} for read notifications only, {@code false} for unread only,
+     *             absent for all. Matches the {@code read} flag on the row, so the parameter
+     *             name and the result agree.
      */
     @GetMapping
-    public ApiResponse<PageResponse<NotificationResponseDto>> list(
+    public ApiResponse<List<NotificationResponseDto>> list(
             @AuthenticationPrincipal JwtPrincipal principal,
             @RequestParam(required = false) Boolean read,
-            @RequestParam(required = false) NotificationType type,
-            @PageableDefault(size = 20, sort = "issueDate", direction = Sort.Direction.DESC)
-            Pageable pageable) {
+            @RequestParam(required = false) NotificationType type) {
         return ApiResponse.of(
-            notificationService.list(principal.userId(), read, type, bounded(pageable)),
+            notificationService.list(principal.userId(), read, type),
             "Notifications");
     }
 
-    /** Unread count, for a badge. Separate from the list so the client need not page to it. */
+    /** Unread count, for a badge. Separate from the list so a client need not fetch every
+     * notification to render one number. */
     @GetMapping("/unread-count")
     public ApiResponse<Map<String, Long>> unreadCount(
             @AuthenticationPrincipal JwtPrincipal principal) {
@@ -70,9 +67,5 @@ public class NotificationController {
             @AuthenticationPrincipal JwtPrincipal principal) {
         int updated = notificationService.markAllRead(principal.userId());
         return ApiResponse.of(Map.of("markedRead", updated), "Marked all read");
-    }
-
-    private static Pageable bounded(Pageable pageable) {
-        return SafePageable.of(pageable, SafePageable.NOTIFICATION_SORT_FIELDS);
     }
 }
