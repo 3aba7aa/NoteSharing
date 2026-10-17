@@ -3,7 +3,6 @@ package org.example.notesharing.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.notesharing.dto.common.ApiResponse;
-import org.example.notesharing.dto.common.PageResponse;
 import org.example.notesharing.dto.settings.SettingsResponseDto;
 import org.example.notesharing.dto.settings.UpdateSettingsRequestDto;
 import org.example.notesharing.dto.user.UpdateUserRequestDto;
@@ -12,8 +11,6 @@ import org.example.notesharing.dto.user.UserSummaryDto;
 import org.example.notesharing.security.JwtPrincipal;
 import org.example.notesharing.service.SettingsService;
 import org.example.notesharing.service.UserService;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,13 +21,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserController {
-
-    /** Upper bound on page size, so one request cannot ask for the whole table. */
-    private static final int MAX_PAGE_SIZE = 100;
 
     private final UserService userService;
     private final SettingsService settingsService;
@@ -73,17 +69,14 @@ public class UserController {
             "User");
     }
 
+    /**
+     * @param q mandatory search term. Declared {@code required = false} so a missing
+     *          parameter reaches the service and is rejected as a 400 business-rule
+     *          violation, rather than Spring's own 500 for an unbound parameter.
+     */
     @GetMapping("/search")
-    public ApiResponse<PageResponse<UserSummaryDto>> search(
-            @RequestParam(name = "q") String query,
-            @RequestParam(name = "page", defaultValue = "0") int page,
-            @RequestParam(name = "size", defaultValue = "20") int size) {
-
-        int clamped = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
-        int safePage = Math.max(page, 0);
-
-        return ApiResponse.of(
-            userService.search(query, PageRequest.of(safePage, clamped, Sort.by("username"))),
-            "Search results");
+    public ApiResponse<List<UserSummaryDto>> search(
+            @RequestParam(name = "q", required = false) String query) {
+        return ApiResponse.of(userService.search(query), "Search results");
     }
 }

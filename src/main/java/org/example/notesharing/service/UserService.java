@@ -1,7 +1,6 @@
 package org.example.notesharing.service;
 
 import lombok.RequiredArgsConstructor;
-import org.example.notesharing.dto.common.PageResponse;
 import org.example.notesharing.dto.user.UpdateUserRequestDto;
 import org.example.notesharing.dto.user.UserResponseDto;
 import org.example.notesharing.dto.user.UserSummaryDto;
@@ -10,9 +9,10 @@ import org.example.notesharing.exception.BusinessRuleException;
 import org.example.notesharing.exception.ConflictException;
 import org.example.notesharing.exception.ResourceNotFoundException;
 import org.example.notesharing.repository.UserRepository;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -42,13 +42,13 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<UserSummaryDto> search(String query, Pageable pageable) {
+    public List<UserSummaryDto> search(String query) {
         if (query == null || query.isBlank()) {
             throw new BusinessRuleException("A search query 'q' is required.");
         }
-        return PageResponse.from(
-            users.search(query.trim(), pageable),
-            user -> new UserSummaryDto(user.getId(), user.getUsername()));
+        return users.search(query.trim()).stream()
+            .map(user -> new UserSummaryDto(user.getId(), user.getUsername()))
+            .toList();
     }
 
     private User require(Long userId) {
