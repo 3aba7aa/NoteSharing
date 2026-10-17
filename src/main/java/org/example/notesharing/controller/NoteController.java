@@ -3,7 +3,6 @@ package org.example.notesharing.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.notesharing.dto.common.ApiResponse;
-import org.example.notesharing.dto.common.PageResponse;
 import org.example.notesharing.dto.note.CreateNoteRequestDto;
 import org.example.notesharing.dto.note.NoteResponseDto;
 import org.example.notesharing.dto.note.NoteShareResponseDto;
@@ -15,10 +14,6 @@ import org.example.notesharing.enums.NoteType;
 import org.example.notesharing.enums.NoteVisibility;
 import org.example.notesharing.security.JwtPrincipal;
 import org.example.notesharing.service.NoteService;
-import org.example.notesharing.web.SafePageable;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -47,55 +42,49 @@ public class NoteController {
 
     private final NoteService noteService;
 
-    /** The caller's own notes. */
+    /** The caller's own notes, newest first. */
     @GetMapping
-    public ApiResponse<PageResponse<NoteSummaryDto>> listMine(
+    public ApiResponse<List<NoteSummaryDto>> listMine(
             @AuthenticationPrincipal JwtPrincipal principal,
             @RequestParam(required = false) NoteType type,
             @RequestParam(required = false) NoteVisibility visibility,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
-            Pageable pageable) {
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
 
         return ApiResponse.of(
-            noteService.listOwned(principal.userId(), type, visibility, from, to, bounded(pageable)),
+            noteService.listOwned(principal.userId(), type, visibility, from, to),
             "Your notes");
     }
 
-    /** Notes other users have shared with the caller. */
+    /** Notes other users have shared with the caller, newest first. */
     @GetMapping("/shared")
-    public ApiResponse<PageResponse<NoteSummaryDto>> listShared(
+    public ApiResponse<List<NoteSummaryDto>> listShared(
             @AuthenticationPrincipal JwtPrincipal principal,
             @RequestParam(required = false) NoteType type,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
-            Pageable pageable) {
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
 
         return ApiResponse.of(
-            noteService.listSharedWithMe(principal.userId(), type, from, to, bounded(pageable)),
+            noteService.listSharedWithMe(principal.userId(), type, from, to),
             "Notes shared with you");
     }
 
-    /** Public notes by other users. */
+    /** Public notes by other users, newest first. */
     @GetMapping("/public")
-    public ApiResponse<PageResponse<NoteSummaryDto>> listPublic(
+    public ApiResponse<List<NoteSummaryDto>> listPublic(
             @AuthenticationPrincipal JwtPrincipal principal,
             @RequestParam(required = false) NoteType type,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
-            Pageable pageable) {
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
 
         return ApiResponse.of(
-            noteService.listPublic(principal.userId(), type, from, to, bounded(pageable)),
+            noteService.listPublic(principal.userId(), type, from, to),
             "Public notes");
     }
 
@@ -165,10 +154,5 @@ public class NoteController {
         return ApiResponse.of(
             noteService.updateSharePermission(id, principal.userId(), userId, request),
             "Share updated");
-    }
-
-    /** Clamps size and page, and rejects sorting on a field the entity does not have. */
-    private static Pageable bounded(Pageable pageable) {
-        return SafePageable.of(pageable, SafePageable.NOTE_SORT_FIELDS);
     }
 }

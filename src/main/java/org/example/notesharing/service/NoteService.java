@@ -8,7 +8,6 @@ import org.example.notesharing.dto.note.NoteSummaryDto;
 import org.example.notesharing.dto.note.ShareNoteRequestDto;
 import org.example.notesharing.dto.note.UpdateNoteRequestDto;
 import org.example.notesharing.dto.note.UpdateShareRequestDto;
-import org.example.notesharing.dto.common.PageResponse;
 import org.example.notesharing.dto.user.UserSummaryDto;
 import org.example.notesharing.entity.Note;
 import org.example.notesharing.entity.NoteSharing;
@@ -23,8 +22,6 @@ import org.example.notesharing.exception.ResourceNotFoundException;
 import org.example.notesharing.repository.NoteRepository;
 import org.example.notesharing.repository.NoteSharingRepository;
 import org.example.notesharing.repository.UserRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,29 +63,27 @@ public class NoteService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<NoteSummaryDto> listOwned(Long userId, NoteType type, NoteVisibility visibility,
-                                                 LocalDateTime from, LocalDateTime to,
-                                                 Pageable pageable) {
-        return PageResponse.from(
-            notes.findOwned(userId, type, visibility, from, to, pageable),
-            note -> toSummary(note, NotePermission.EDIT));
+    public List<NoteSummaryDto> listOwned(Long userId, NoteType type, NoteVisibility visibility,
+                                          LocalDateTime from, LocalDateTime to) {
+        return notes.findOwned(userId, type, visibility, from, to).stream()
+            .map(note -> toSummary(note, NotePermission.EDIT))
+            .toList();
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<NoteSummaryDto> listSharedWithMe(Long userId, NoteType type,
-                                                         LocalDateTime from, LocalDateTime to,
-                                                         Pageable pageable) {
-        Page<Note> page = notes.findSharedWithMe(userId, type, from, to, pageable);
-        return PageResponse.from(page, note -> toSummary(note, permissionFor(note, userId)));
+    public List<NoteSummaryDto> listSharedWithMe(Long userId, NoteType type,
+                                                 LocalDateTime from, LocalDateTime to) {
+        return notes.findSharedWithMe(userId, type, from, to).stream()
+            .map(note -> toSummary(note, permissionFor(note, userId)))
+            .toList();
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<NoteSummaryDto> listPublic(Long userId, NoteType type,
-                                                   LocalDateTime from, LocalDateTime to,
-                                                   Pageable pageable) {
-        return PageResponse.from(
-            notes.findPublicByOthers(userId, NoteVisibility.PUBLIC, type, from, to, pageable),
-            note -> toSummary(note, NotePermission.VIEW));
+    public List<NoteSummaryDto> listPublic(Long userId, NoteType type,
+                                           LocalDateTime from, LocalDateTime to) {
+        return notes.findPublicByOthers(userId, NoteVisibility.PUBLIC, type, from, to).stream()
+            .map(note -> toSummary(note, NotePermission.VIEW))
+            .toList();
     }
 
     @Transactional(readOnly = true)

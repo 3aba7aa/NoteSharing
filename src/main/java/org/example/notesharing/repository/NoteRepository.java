@@ -3,13 +3,12 @@ package org.example.notesharing.repository;
 import org.example.notesharing.entity.Note;
 import org.example.notesharing.enums.NoteType;
 import org.example.notesharing.enums.NoteVisibility;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface NoteRepository extends JpaRepository<Note, Long> {
@@ -29,17 +28,17 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
           and (:visibility is null or n.visibility = :visibility)
           and (:from is null or n.createdAt >= :from)
           and (:to is null or n.createdAt <= :to)
+        order by n.createdAt desc, n.id desc
         """)
-    Page<Note> findOwned(@Param("ownerId") Long ownerId,
+    List<Note> findOwned(@Param("ownerId") Long ownerId,
                          @Param("type") NoteType type,
                          @Param("visibility") NoteVisibility visibility,
                          @Param("from") LocalDateTime from,
-                         @Param("to") LocalDateTime to,
-                         Pageable pageable);
+                         @Param("to") LocalDateTime to);
 
     /**
      * Notes shared with the caller. Shares are joined rather than fetched and filtered in
-     * memory so paging and the total count stay correct.
+     * memory, so the join cannot change which notes are returned.
      */
     @Query("""
         select n from Note n
@@ -48,12 +47,12 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
           and (:type is null or n.type = :type)
           and (:from is null or n.createdAt >= :from)
           and (:to is null or n.createdAt <= :to)
+        order by n.createdAt desc, n.id desc
         """)
-    Page<Note> findSharedWithMe(@Param("userId") Long userId,
+    List<Note> findSharedWithMe(@Param("userId") Long userId,
                                 @Param("type") NoteType type,
                                 @Param("from") LocalDateTime from,
-                                @Param("to") LocalDateTime to,
-                                Pageable pageable);
+                                @Param("to") LocalDateTime to);
 
     /**
      * Public notes by other users, for a browse feed. Excludes the caller's own notes so the
@@ -66,13 +65,13 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
           and (:type is null or n.type = :type)
           and (:from is null or n.createdAt >= :from)
           and (:to is null or n.createdAt <= :to)
+        order by n.createdAt desc, n.id desc
         """)
-    Page<Note> findPublicByOthers(@Param("userId") Long userId,
+    List<Note> findPublicByOthers(@Param("userId") Long userId,
                                   @Param("visibility") NoteVisibility visibility,
                                   @Param("type") NoteType type,
                                   @Param("from") LocalDateTime from,
-                                  @Param("to") LocalDateTime to,
-                                  Pageable pageable);
+                                  @Param("to") LocalDateTime to);
 
     Optional<Note> findByIdAndUserId(Long id, Long userId);
 }
