@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -14,6 +15,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -128,5 +130,17 @@ public class GlobalExceptionHandler {
         ProblemDetail pd = ProblemDetail.forStatus(status);
         pd.setTitle(title);
         return pd;
+    }
+
+    @ExceptionHandler(SystemException.class)
+    public ResponseEntity<ErrorResponse> handleSystemException(SystemException ex) {
+        ErrorEnum error = ex.getErrorEnum();
+        ErrorResponse response = new ErrorResponse(
+                error.getCode(),
+                error.getMessage(),
+                error.getHttpStatus().value(),
+                Instant.now()
+        );
+        return ResponseEntity.status(error.getHttpStatus()).body(response);
     }
 }

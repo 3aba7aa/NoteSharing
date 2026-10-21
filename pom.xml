@@ -28,10 +28,6 @@
     </scm>
     <properties>
         <java.version>27</java.version>
-        <!-- Not managed by spring-boot-dependencies: pinned explicitly. -->
-        <!-- Boot 4.1.1 manages Lombok 1.18.46, which cannot run on JDK 27
-             (ExceptionInInitializerError: com.sun.tools.javac.tree.EndPosTable).
-             1.18.48 is the first release with JDK 27 support. -->
         <lombok.version>1.18.48</lombok.version>
         <jjwt.version>0.13.0</jjwt.version>
         <zxing.version>3.5.4</zxing.version>
@@ -75,6 +71,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -165,7 +162,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
                 <configuration>
+                    <release>${java.version}</release>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
