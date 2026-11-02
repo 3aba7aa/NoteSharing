@@ -1,0 +1,859 @@
+{
+  "info": {
+    "_postman_id": "8f0f3a2e-1b6c-4d5e-9a7b-2c3d4e5f6a7b",
+    "name": "NoteSharing API v1 - pagination-free lists",
+    "description": "Exercises the whole NoteSharing API over real HTTP, with emphasis on the nine list endpoints that stopped paginating on 2026-10-17.\n\nHOW TO USE\n1. Start the dev app:  .\\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev\n2. Import this file, then run the whole collection with the Collection Runner, or run the folders in order.\n3. Folders 0 and 1 must run first: they register throwaway users and seed notes, shares, friend requests and a block, so the list endpoints in folder 2 return data instead of empty arrays.\n\nThe collection captures the access token automatically, so no manual copy-paste. All seeded entities are named with a per-run suffix that is regenerated at the start of every run, so you can re-run the whole collection as many times as you like.\n\nNOTES ON THE CHANGE\nEvery list endpoint now returns ApiResponse<List<T>>: a JSON array under 'data', not a {content,page,size,totalElements,totalPages} object. Ordering is fixed per endpoint. Legacy ?page=/?size= parameters are accepted and ignored rather than rejected.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Regenerate the per-run suffix at the start of each run, so re-running the",
+          "// collection always seeds fresh users instead of colliding on usernames.",
+          "if (pm.info.requestName === 'Register me (captures token)') {",
+          "  pm.collectionVariables.set('suffix', Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "suffix", "value": "" },
+    { "key": "token", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "peer_a_token", "value": "" },
+    { "key": "peer_b_token", "value": "" },
+    { "key": "peer_c_token", "value": "" },
+    { "key": "peer_d_token", "value": "" },
+    { "key": "peer_a_id", "value": "" },
+    { "key": "peer_b_id", "value": "" },
+    { "key": "peer_c_id", "value": "" },
+    { "key": "peer_d_id", "value": "" },
+    { "key": "peerNoteId", "value": "" },
+    { "key": "note1Id", "value": "" },
+    { "key": "note2Id", "value": "" },
+    { "key": "requestId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0 - Setup and auth",
+      "item": [
+        {
+          "name": "Register me (captures token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body.data;",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('access token returned', () => pm.expect(d.accessToken).to.be.a('string').and.to.have.length.above(10));",
+                  "pm.collectionVariables.set('token', d.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', d.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"me_{{suffix}}\",\n  \"email\": \"me_{{suffix}}@example.com\",\n  \"password\": \"secret123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "description": "Public endpoint. Creates the caller whose lists folder 2 reads."
+          }
+        },
+        {
+          "name": "Login (re-issue token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token', d.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', d.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"me_{{suffix}}@example.com\",\n  \"password\": \"secret123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "description": "Login is by email, not username. Re-runs the token capture if the access token expired."
+          }
+        },
+        {
+          "name": "Who am I (captures userId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('userId', d.id);",
+                  "pm.test('userId captured', () => pm.expect(pm.collectionVariables.get('userId')).to.not.be.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/users/me",
+            "description": "Bearer token comes from the collection auth. Needed so peers can address the caller by id."
+          }
+        }
+      ]
+    },
+    {
+      "name": "1 - Seed peers and data",
+      "item": [
+        {
+          "name": "Register peer a (later: befriended, shares a note)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('peer_a_token', d.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"peer_{{suffix}}_a\",\n  \"email\": \"peer_a_{{suffix}}@example.com\",\n  \"password\": \"secret123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "Register peer b (later: sends me a request)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('peer_b_token', d.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"peer_{{suffix}}_b\",\n  \"email\": \"peer_b_{{suffix}}@example.com\",\n  \"password\": \"secret123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "Register peer c (later: I send them a request)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('peer_c_token', d.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"peer_{{suffix}}_c\",\n  \"email\": \"peer_c_{{suffix}}@example.com\",\n  \"password\": \"secret123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "Register peer d (later: I block them)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('peer_d_token', d.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"peer_{{suffix}}_d\",\n  \"email\": \"peer_d_{{suffix}}@example.com\",\n  \"password\": \"secret123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "Resolve peer ids (search + map)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "const suffix = pm.collectionVariables.get('suffix');",
+                  "pm.test('search returned an array', () => pm.expect(d).to.be.an('array'));",
+                  "pm.test('all four peers found', () => pm.expect(d).to.have.length(4));",
+                  "for (const k of ['a', 'b', 'c', 'd']) {",
+                  "  const row = d.find(r => r.username === 'peer_' + suffix + '_' + k);",
+                  "  if (row) pm.collectionVariables.set('peer_' + k + '_id', row.id);",
+                  "}",
+                  "pm.test('peer ids resolved', () => {",
+                  "  for (const k of ['a', 'b', 'c', 'd']) {",
+                  "    pm.expect(pm.collectionVariables.get('peer_' + k + '_id'), k).to.not.be.empty;",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/users/search?q=peer_{{suffix}}",
+            "description": "Search is one of the nine converted endpoints, and doubles as the way to learn the peers' ids. Usernames are peer_<suffix>_a .. _d, so the common prefix matches all four and nothing else."
+          }
+        },
+        {
+          "name": "I create a PUBLIC note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('note1Id', d.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"My public note\",\n  \"content\": \"visible to everyone\",\n  \"type\": \"GENERAL\",\n  \"visibility\": \"PUBLIC\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/notes",
+            "description": "type is JOURNAL, GENERAL or TODO. visibility is PUBLIC, PRIVATE or LINK_ONLY."
+          }
+        },
+        {
+          "name": "I create a PRIVATE note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('note2Id', d.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"My private note\",\n  \"content\": \"just for me\",\n  \"type\": \"TODO\",\n  \"visibility\": \"PRIVATE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/notes"
+          }
+        },
+        {
+          "name": "Peer a creates a note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('peerNoteId', d.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{peer_a_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Peer a's note\",\n  \"content\": \"shared with me in a moment\",\n  \"type\": \"GENERAL\",\n  \"visibility\": \"PRIVATE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/notes",
+            "description": "Uses peer a's token via request-level auth, which overrides the collection token."
+          }
+        },
+        {
+          "name": "Peer a shares that note with me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{peer_a_token}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": {{userId}},\n  \"permission\": \"VIEW\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/notes/{{peerNoteId}}/shares",
+            "description": "Makes GET /notes/shared non-empty for me. permission is VIEW or EDIT (EDIT also grants read)."
+          }
+        },
+        {
+          "name": "Peer a sends me a friend request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('requestId', d.id);",
+                  "pm.test('direction is OUTGOING from peer a\\'s side', () => pm.expect(d.direction).to.eql('OUTGOING'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{peer_a_token}}", "type": "string" } ] },
+            "url": "{{baseUrl}}/api/v1/users/{{userId}}/friend-request",
+            "description": "Posted to MY id using peer a's token. The returned relationship id is what I accept next."
+          }
+        },
+        {
+          "name": "I accept peer a's request (become friends)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/friend-requests/{{requestId}}/accept",
+            "description": "Makes GET /users/me/friends non-empty."
+          }
+        },
+        {
+          "name": "Peer b sends me a friend request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{peer_b_token}}", "type": "string" } ] },
+            "url": "{{baseUrl}}/api/v1/users/{{userId}}/friend-request",
+            "description": "Left pending, so it shows up in GET /friend-requests with direction INCOMING."
+          }
+        },
+        {
+          "name": "I send peer c a friend request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/users/{{peer_c_id}}/friend-request",
+            "description": "Makes GET /friend-requests/sent non-empty with direction OUTGOING."
+          }
+        },
+        {
+          "name": "I block peer d",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/users/{{peer_d_id}}/block",
+            "description": "Makes GET /users/me/blocked non-empty."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 - The nine list endpoints (changed)",
+      "item": [
+        {
+          "name": "GET /notes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('data is an array', () => pm.expect(d).to.be.an('array'));",
+                  "pm.test('no pagination metadata', () => {",
+                  "  pm.expect('content' in d).to.be.false;",
+                  "  pm.expect('totalElements' in d).to.be.false;",
+                  "});",
+                  "pm.test('newest first', () => {",
+                  "  const c = d.map(n => n.createdAt);",
+                  "  pm.expect(c).to.eql([...c].sort().reverse());",
+                  "});",
+                  "pm.test('summary omits the body', () => {",
+                  "  if (d.length) pm.expect('content' in d[0]).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/notes",
+            "description": "My own notes, newest first. Filters: type, visibility, from, to are all optional."
+          }
+        },
+        {
+          "name": "GET /notes/shared",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('data is an array', () => pm.expect(d).to.be.an('array'));",
+                  "pm.test('no pagination metadata', () => {",
+                  "  pm.expect('content' in d).to.be.false;",
+                  "  pm.expect('totalElements' in d).to.be.false;",
+                  "});",
+                  "pm.test('contains the note peer a shared', () => {",
+                  "  pm.expect(d.map(n => n.title)).to.include(\"Peer a's note\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/notes/shared",
+            "description": "Notes other people shared WITH me (not notes I shared out), newest first."
+          }
+        },
+        {
+          "name": "GET /notes/public",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('data is an array', () => pm.expect(d).to.be.an('array'));",
+                  "pm.test('no pagination metadata', () => {",
+                  "  pm.expect('content' in d).to.be.false;",
+                  "  pm.expect('totalElements' in d).to.be.false;",
+                  "});",
+                  "pm.test('excludes my own note', () => {",
+                  "  pm.expect(d.map(n => n.title)).to.not.include('My public note');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/notes/public",
+            "description": "Other people's PUBLIC notes only. My own notes are excluded even when they are public."
+          }
+        },
+        {
+          "name": "GET /users/search?q=",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('data is an array', () => pm.expect(d).to.be.an('array'));",
+                  "pm.test('no pagination metadata', () => {",
+                  "  pm.expect('content' in d).to.be.false;",
+                  "  pm.expect('totalElements' in d).to.be.false;",
+                  "});",
+                  "pm.test('username ascending', () => {",
+                  "  const u = d.map(x => x.username);",
+                  "  pm.expect(u).to.eql([...u].sort());",
+                  "});",
+                  "pm.test('summary is id + username only', () => {",
+                  "  if (d.length) pm.expect(Object.keys(d[0]).sort()).to.eql(['id', 'username']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/users/search?q={{suffix}}",
+            "description": "Matches me and all four peers, so the result is non-empty. Usernames come back ascending."
+          }
+        },
+        {
+          "name": "GET /users/search (missing q -> 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request, not 500', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/users/search",
+            "description": "The bundled bug fix: a missing q used to raise an unhandled MissingServletRequestParameterException and surface as 500. It is now a 400 business-rule violation."
+          }
+        },
+        {
+          "name": "GET /notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('data is an array', () => pm.expect(d).to.be.an('array'));",
+                  "pm.test('no pagination metadata', () => {",
+                  "  pm.expect('content' in d).to.be.false;",
+                  "  pm.expect('totalElements' in d).to.be.false;",
+                  "});",
+                  "pm.test('newest first by issueDate', () => {",
+                  "  const c = d.map(n => n.issueDate);",
+                  "  pm.expect(c).to.eql([...c].sort().reverse());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/notifications",
+            "description": "Optional filters: read, type. Note that ?read=true means notifications whose read flag IS true (i.e. read), not 'unread only'."
+          }
+        },
+        {
+          "name": "GET /users/me/friends",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('data is an array', () => pm.expect(d).to.be.an('array'));",
+                  "pm.test('no pagination metadata', () => {",
+                  "  pm.expect('content' in d).to.be.false;",
+                  "  pm.expect('totalElements' in d).to.be.false;",
+                  "});",
+                  "pm.test('contains peer a', () => {",
+                  "  const suffix = pm.collectionVariables.get('suffix');",
+                  "  pm.expect(d.map(r => r.user.username)).to.include('peer_' + suffix + '_a');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/users/me/friends",
+            "description": "No user id in the path: the caller is read from the token."
+          }
+        },
+        {
+          "name": "GET /users/me/blocked",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('data is an array', () => pm.expect(d).to.be.an('array'));",
+                  "pm.test('no pagination metadata', () => {",
+                  "  pm.expect('content' in d).to.be.false;",
+                  "  pm.expect('totalElements' in d).to.be.false;",
+                  "});",
+                  "pm.test('contains peer d', () => {",
+                  "  const suffix = pm.collectionVariables.get('suffix');",
+                  "  pm.expect(d.map(r => r.user.username)).to.include('peer_' + suffix + '_d');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/users/me/blocked",
+            "description": "People I have blocked (not people who blocked me)."
+          }
+        },
+        {
+          "name": "GET /friend-requests (incoming)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('data is an array', () => pm.expect(d).to.be.an('array'));",
+                  "pm.test('no pagination metadata', () => {",
+                  "  pm.expect('content' in d).to.be.false;",
+                  "  pm.expect('totalElements' in d).to.be.false;",
+                  "});",
+                  "pm.test('peer b is waiting, direction INCOMING', () => {",
+                  "  const suffix = pm.collectionVariables.get('suffix');",
+                  "  const row = d.find(r => r.user.username === 'peer_' + suffix + '_b');",
+                  "  pm.expect(row, 'peer b request present').to.exist;",
+                  "  pm.expect(row.direction).to.eql('INCOMING');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/friend-requests",
+            "description": "Requests waiting for MY answer. Each row has direction INCOMING."
+          }
+        },
+        {
+          "name": "GET /friend-requests/sent (outgoing)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('data is an array', () => pm.expect(d).to.be.an('array'));",
+                  "pm.test('no pagination metadata', () => {",
+                  "  pm.expect('content' in d).to.be.false;",
+                  "  pm.expect('totalElements' in d).to.be.false;",
+                  "});",
+                  "pm.test('peer c is pending, direction OUTGOING', () => {",
+                  "  const suffix = pm.collectionVariables.get('suffix');",
+                  "  const row = d.find(r => r.user.username === 'peer_' + suffix + '_c');",
+                  "  pm.expect(row, 'peer c request present').to.exist;",
+                  "  pm.expect(row.direction).to.eql('OUTGOING');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/friend-requests/sent",
+            "description": "Requests I sent that nobody has answered. Each row has direction OUTGOING."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3 - Back-compat and edge cases",
+      "item": [
+        {
+          "name": "Legacy ?page=2&size=20 is ignored, not honoured",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('still a full array', () => pm.expect(d).to.be.an('array'));",
+                  "pm.test('page 2 does not exist', () => pm.expect(d.length).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/notes?page=2&size=20",
+            "description": "An old client that still sends paging parameters keeps working: they are accepted and politely ignored."
+          }
+        },
+        {
+          "name": "Filters still narrow: ?type=TODO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('only TODO notes', () => pm.expect(d.map(n => n.type)).to.eql(['TODO']));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/notes?type=TODO",
+            "description": "type values are JOURNAL, GENERAL, TODO. An unknown value is a 400."
+          }
+        },
+        {
+          "name": "Malformed enum -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/notes?type=NOPE",
+            "description": "Proves the enum filters are still type-checked after the signature rewrite."
+          }
+        }
+      ]
+    }
+  ]
+}

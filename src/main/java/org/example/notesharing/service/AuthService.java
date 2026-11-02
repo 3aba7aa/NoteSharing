@@ -11,7 +11,9 @@ import org.example.notesharing.entity.User;
 import org.example.notesharing.entity.UserSettings;
 import org.example.notesharing.enums.Theme;
 import org.example.notesharing.exception.ConflictException;
+import org.example.notesharing.exception.ErrorEnum;
 import org.example.notesharing.exception.ResourceNotFoundException;
+import org.example.notesharing.exception.SystemException;
 import org.example.notesharing.exception.UnauthorizedException;
 import org.example.notesharing.repository.RefreshTokenRepository;
 import org.example.notesharing.repository.UserRepository;
@@ -42,10 +44,10 @@ public class AuthService {
 
         // Case-insensitive so Bob@x.com and bob@x.com cannot become two accounts.
         if (users.existsByEmailIgnoreCase(email)) {
-            throw new ConflictException("Email", email);
+            throw new SystemException(ErrorEnum.EMAIL_ALREADY_EXISTS);
         }
         if (users.existsByUsernameIgnoreCase(username)) {
-            throw new ConflictException("Username", username);
+            throw new SystemException(ErrorEnum.USERNAME_ALREADY_EXISTS);
         }
 
         User user = new User();
@@ -73,7 +75,7 @@ public class AuthService {
 
         // One message for both cases. Distinguishing them would confirm which emails exist.
         if (user == null || !passwordEncoder.matches(request.password(), user.getHashedPassword())) {
-            throw new UnauthorizedException("Invalid email or password");
+            throw new SystemException(ErrorEnum.INVALID_CREDENTIALS);
         }
         return issueTokens(user);
     }
